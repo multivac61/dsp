@@ -49,6 +49,16 @@ def highpass(wc, k, r):
     ).to_tf()
 
 
+def all_40db_filters(wc, k, r):
+    """Combination of -40dB/dec lowpass/bandpass/highpass filters"""
+    return signal.StateSpace(
+        wc * np.array([[-2 * r, 1, 0, 4 * k * r ** 2], [-1, 0, 0, 0], [0, -1, -2 * r, 1], [0, 0, -1, 0]]),
+        wc * np.array([[1, 0, 0, 0]]).T,
+        np.array([[0, -gamma, 0, 0], [0, 1, 2 * r, -1], [-2 * r, 1, 0, 4 * k * r ** 2]]),
+        np.array([[0], [0], [1]])
+    ).to_tf()
+
+
 # %%
 # Bode plot of low-band-highpass filters with 40db/dec
 
@@ -79,16 +89,12 @@ def dry_wet(mix):
     )
 
 
-hs = [lowpass(wc, k, r), bandpass(wc, k, r), highpass(wc, k, r)]
+hs = all_40db_filters(wc, k, r)
 
 
 def bode(mix, ws=np.linspace(0, 2 * np.pi * 44.1e3, 10_000)):
-    h_den = sum(y.den for y in hs)
-
-    padding = max(map(len, (y.num for y in hs)))
-    h_num = sum(k * np.pad(y, (padding - len(y), 0)) for k, y in zip(dry_wet(mix), (y.num for y in hs)))
-
-    return signal.bode((h_num, h_den), ws)
+    hs_num = sum(k * y for k, y in zip(dry_wet(mix), hs.num))
+    return signal.bode((hs_num, hs.den), ws)
 
 
 plt.figure()
@@ -129,3 +135,6 @@ def bode_plot(i):
 
 anim = FuncAnimation(fig, bode_plot, frames=np.arange(steps))
 anim.save(f'bode={steps}_clear_fps=60.mp4', dpi=400, fps=60, writer='ffmpeg')
+
+
+#%%

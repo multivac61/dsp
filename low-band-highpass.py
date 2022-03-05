@@ -78,7 +78,7 @@ plt.suptitle('Bode magnitude plot')
 plt.show()
 
 
-# %%
+#%%
 # Bode plot with mix between low-band-highpass filters with 40db/dec
 
 def dry_wet(mix):
@@ -113,7 +113,7 @@ plt.vlines(wc / 10, -100, 20, linestyles='dashed')
 plt.vlines(wc * 10, -100, 20, linestyles='dashed')
 plt.show()
 
-# %%
+#%%
 # Animation of above
 
 fig, axs = plt.subplots(2, 1)
@@ -138,3 +138,65 @@ anim.save(f'bode={steps}_clear_fps=60.mp4', dpi=400, fps=60, writer='ffmpeg')
 
 
 #%%
+
+from sympy import symbols, tan, eye, simplify, Matrix
+
+B = Matrix([[1, 2, 3, 4]])
+C = Matrix([[1, 2, 3, 4]]).T
+
+assert B.shape == (1, 4) and C.shape == (4, 1)
+
+B = np.array([[1, 2, 3, 4]])
+C = np.array([[1, 2, 3, 4]]).T
+
+assert B.shape == (1, 4) and C.shape == (4, 1)
+
+B*C
+
+# wc, r, k, T = symbols('\omega_c, r, k, T')
+
+wc, k, r, T, gamma = 0.1, 0.8, 0.9, 1, 1
+
+A = wc * np.array([[-2 * r, 1, 0, 4 * k * r ** 2], [-1, 0, 0, 0], [0, -1, -2 * r, 1], [0, 0, -1, 0]])
+B = wc * np.array([[1, 0, 0, 0]]).T
+C = np.array([[0, 0, 0, -gamma]])
+D = np.array([[0]])
+
+assert A.shape == (4, 4) and B.shape == (4, 1) and C.shape == (1, 4) and D.shape == (1, 1)
+
+A0, B0, C0, D0, _ = signal.cont2discrete((A, B, C, D), dt=T, method='gbt', alpha=0.5)
+
+plt.figure()
+w, mag, _ = signal.dbode((A0, B0, C0, D0, T))
+plt.semilogx(w, mag)
+# w, mag, _ = signal.bode((A, B, C, D))
+# plt.semilogx(w, mag)
+# plt.show()
+
+g = 2*wc/T
+H = g * np.linalg.inv(np.eye(4) - g * A)
+I = np.eye(4)
+
+A_tilde = 2 * np.dot(H, A) + I
+B_tilde = 2 * np.dot(H, B)
+C_tilde = np.dot(C, (np.dot(H, A) + np.eye(4)))
+D_tilde = np.dot(C, B)
+
+# A_tilde = np.linalg.inv(np.eye(4) - wc*T/2*A) * wc*T/2 @ A
+# B_tilde = np.linalg.inv(np.eye(4) - wc*T/2*A) * wc*T/2 @ B
+# C_tilde = C
+# D_tilde = D
+# C_tilde = np.dot(C, (np.dot(H, A) + np.eye(4)))
+# D_tilde = np.dot(C, B)
+
+assert A_tilde.shape == (4, 4) and B_tilde.shape == (4, 1) and C_tilde.shape == (1, 4) and D_tilde.shape == (1, 1)
+
+# plt.figure()
+w, mag, _ = signal.dbode((A_tilde, B_tilde, C_tilde, D_tilde, T))
+plt.semilogx(w, mag)
+plt.show()
+
+print(f'(row, colum): {A_tilde.shape}, {B_tilde.shape}, {C_tilde.shape}, {D_tilde.shape}')
+
+simplify(D_tilde)
+s =
